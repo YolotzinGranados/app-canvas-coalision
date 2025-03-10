@@ -1,24 +1,22 @@
 const canvas = document.getElementById("canvas");
 let ctx = canvas.getContext("2d");
 
-// Obtiene las dimensiones de la pantalla
+// Dimensiones del canvas
 const window_height = window.innerHeight;
 const window_width = window.innerWidth;
-
 canvas.height = window_height;
 canvas.width = window_width;
 canvas.style.background = "#ff8";
 
 class Circle {
-    constructor(x, y, radius, color, text, speed) {
+    constructor(x, y, radius, color, text, speedX, speedY) {
         this.posX = x;
         this.posY = y;
         this.radius = radius;
         this.color = color;
         this.text = text;
-        this.speed = speed;
-        this.dx = (Math.random() < 0.5 ? -1 : 1) * this.speed;
-        this.dy = (Math.random() < 0.5 ? -1 : 1) * this.speed;
+        this.dx = speedX;
+        this.dy = speedY;
     }
 
     draw(context) {
@@ -34,9 +32,7 @@ class Circle {
         context.closePath();
     }
 
-    update(context) {
-        this.draw(context);
-
+    update() {
         // Rebotar en los bordes
         if (this.posX + this.radius > window_width || this.posX - this.radius < 0) {
             this.dx = -this.dx;
@@ -56,36 +52,60 @@ class Circle {
         
         return distance < this.radius + other.radius;
     }
+
+    resolveCollision(other) {
+        let dx = other.posX - this.posX;
+        let dy = other.posY - this.posY;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance === 0) return; // Evitar división por 0
+
+        // Dirección de la colisión normalizada
+        let nx = dx / distance;
+        let ny = dy / distance;
+
+        // Velocidad relativa
+        let dvx = this.dx - other.dx;
+        let dvy = this.dy - other.dy;
+        let dotProduct = dvx * nx + dvy * ny;
+
+        // Si los círculos ya están separándose, no hacer nada
+        if (dotProduct > 0) return;
+
+        // Intercambiar velocidades en la dirección de la colisión
+        this.dx -= dotProduct * nx;
+        this.dy -= dotProduct * ny;
+        other.dx += dotProduct * nx;
+        other.dy += dotProduct * ny;
+    }
 }
 
 // Crear N círculos aleatorios
-const N = 10; // Número de círculos
+const N = 10;
 let circles = [];
 
 for (let i = 0; i < N; i++) {
     let radius = Math.floor(Math.random() * 30 + 20);
     let x = Math.random() * (window_width - 2 * radius) + radius;
     let y = Math.random() * (window_height - 2 * radius) + radius;
-    let speed = Math.random() * 3 + 1;
+    let speedX = (Math.random() - 0.5) * 5;
+    let speedY = (Math.random() - 0.5) * 5;
     let color = "blue";
-    circles.push(new Circle(x, y, radius, color, i + 1, speed));
+    circles.push(new Circle(x, y, radius, color, i + 1, speedX, speedY));
 }
 
 function updateCircles() {
     requestAnimationFrame(updateCircles);
     ctx.clearRect(0, 0, window_width, window_height);
 
-    // Actualizar cada círculo
     for (let i = 0; i < circles.length; i++) {
-        circles[i].update(ctx);
+        circles[i].update();
+        circles[i].draw(ctx);
 
-        // Detectar colisión con otros círculos
+        // Detección y resolución de colisión entre círculos
         for (let j = i + 1; j < circles.length; j++) {
             if (circles[i].detectCollision(circles[j])) {
-                circles[i].dx = -circles[i].dx;
-                circles[i].dy = -circles[i].dy;
-                circles[j].dx = -circles[j].dx;
-                circles[j].dy = -circles[j].dy;
+                circles[i].resolveCollision(circles[j]);
             }
         }
     }
